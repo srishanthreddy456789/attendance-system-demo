@@ -1,0 +1,4 @@
+cmake
+build-essential
+libgtk2.0-dev
+libboost-all-dev
