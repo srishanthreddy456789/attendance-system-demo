@@ -1,73 +1,54 @@
 import streamlit as st
 import cv2
-import face_recognition
-import os
 import pandas as pd
-from datetime import datetime
+import datetime
+import os
 
-st.set_page_config(page_title="Attendance System", layout="wide")
-st.title("🎓 Automated Attendance System (Face Recognition Demo)")
+# Haar cascade file (OpenCV provides this)
+CASCADE_PATH = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+face_cascade = cv2.CascadeClassifier(CASCADE_PATH)
 
-# ------------------ Load known faces ------------------
-path = "known_faces"
-images = []
-student_names = []
-if os.path.exists(path):
-    for filename in os.listdir(path):
-        img = face_recognition.load_image_file(f"{path}/{filename}")
-        images.append(img)
-        student_names.append(os.path.splitext(filename)[0])
-else:
-    os.makedirs(path)
+# CSV for attendance
+ATTENDANCE_FILE = "attendance.csv"
 
-def find_encodings(images):
-    encode_list = []
-    for img in images:
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        encodes = face_recognition.face_encodings(img)
-        if encodes:  # avoid error if no face in image
-            encode_list.append(encodes[0])
-    return encode_list
+# Initialize attendance file if not exists
+if not os.path.exists(ATTENDANCE_FILE):
+    df = pd.DataFrame(columns=["Name", "Time"])
+    df.to_csv(ATTENDANCE_FILE, index=False)
 
-encode_list_known = find_encodings(images)
-st.success(f"Loaded {len(encode_list_known)} student(s) from known_faces/")
+st.title("📸 Face Detection Attendance System (OpenCV Only)")
 
-# ------------------ Attendance ------------------
-attendance_file = "attendance.csv"
-if not os.path.exists(attendance_file):
-    pd.DataFrame(columns=["Name", "Time"]).to_csv(attendance_file, index=False)
+# Upload image
+uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
 
-def mark_attendance(name):
-    df = pd.read_csv(attendance_file)
-    if name not in df["Name"].values:
-        now = datetime.now()
-        df = pd.concat([df, pd.DataFrame([[name, now.strftime("%H:%M:%S")]], columns=["Name", "Time"])], ignore_index=True)
-        df.to_csv(attendance_file, index=False)
+if uploaded_file is not None:
+    # Read image
+    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, 1)
 
-# ------------------ Streamlit Webcam ------------------
-run = st.checkbox("Start Webcam")
-FRAME_WINDOW = st.image([])
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-camera = cv2.VideoCapture(0)
+    # Detect faces
+    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
 
-while run:
-    ret, frame = camera.read()
-    if not ret:
-        st.error("Webcam not detected.")
-        break
+    # Draw rectangles
+    for (x, y, w, h) in faces:
+        cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-    img_small = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-    rgb_small = cv2.cvtColor(img_small, cv2.COLOR_BGR2RGB)
+    # Save attendance if faces found
+    if len(faces) > 0:
+        name = st.text_input("Enter your name to mark attendance:")
+        if st.button("Mark Attendance"):
+            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            new_entry = pd.DataFrame([[name, now]], columns=["Name", "Time"])
+            new_entry.to_csv(ATTENDANCE_FILE, mode="a", header=False, index=False)
+            st.success(f"Attendance marked for {name} ✅")
 
-    faces_cur_frame = face_recognition.face_locations(rgb_small)
-    encodes_cur_frame = face_recognition.face_encodings(rgb_small, faces_cur_frame)
+    # Show image with detections
+    st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), channels="RGB")
 
-    for encode_face, face_loc in zip(encodes_cur_frame, faces_cur_frame):
-        matches = face_recognition.compare_faces(encode_list_known, encode_face)
-        face_dis = face_recognition.face_distance(encode_list_known, encode_face)
-
-        if len(face_dis) > 0:
-            match_index = face_dis.argmin()
-            if matches[match_index]:
-                name = student_names[match_index].upper()
-                y1, x2, y2, x1
+# Show attendance records
+if st.checkbox("📋 Show Attendance Records"):
+    df = pd.read_csv(ATTENDANCE_FILE)
+    st.dataframe(df)
