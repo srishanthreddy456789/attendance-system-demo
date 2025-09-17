@@ -115,8 +115,15 @@ elif mode == "🎥 Use Webcam":
         st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), channels="RGB")
 
 # -------------------------
-# Attendance Log
+# Attendance Log + Export
 # -------------------------
 if st.checkbox("📋 Show Attendance Records"):
     df = pd.read_csv(ATTENDANCE_FILE)
     st.dataframe(df)
+
+    # Export as Excel
+    if st.download_button("⬇️ Download as Excel", 
+                          data=df.to_excel(index=False, engine="openpyxl"),
+                          file_name="attendance.xlsx",
+                          mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"):
+        st.success("Excel file downloaded ✅")
