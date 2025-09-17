@@ -17,7 +17,7 @@ face_cascade = cv2.CascadeClassifier(CASCADE_PATH)
 if not os.path.exists(ATTENDANCE_FILE):
     pd.DataFrame(columns=["Name", "Time"]).to_csv(ATTENDANCE_FILE, index=False)
 
-# Train recognizer from dataset
+# Train recognizer
 def train_recognizer():
     recognizer = cv2.face.LBPHFaceRecognizer_create()
     faces, labels = [], []
@@ -33,7 +33,7 @@ def train_recognizer():
             continue
         (x, y, w, h) = detected[0]
         faces.append(gray[y:y+h, x:x+w])
-        name = filename.split(".")[0]  # "alice.jpg" → "alice"
+        name = filename.split(".")[0]
         if name not in label_map:
             label_map[name] = id_counter
             id_counter += 1
@@ -43,44 +43,80 @@ def train_recognizer():
         recognizer.train(faces, np.array(labels))
     return recognizer, {v: k for k, v in label_map.items()}
 
-# Train model once
+# Train once
 recognizer, id_to_name = train_recognizer()
 
 st.title("🎓 Face Recognition Attendance System")
 
-# Upload image
-uploaded_file = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"])
+mode = st.radio("Choose input method:", ["📁 Upload Image", "🎥 Use Webcam"])
 
-if uploaded_file is not None:
-    # Read uploaded image
-    file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-    img = cv2.imdecode(file_bytes, 1)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+# -------------------------
+# Mode 1: Upload Image
+# -------------------------
+if mode == "📁 Upload Image":
+    uploaded_file = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"])
 
-    # Detect faces
-    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+    if uploaded_file is not None:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, 1)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
 
-    for (x, y, w, h) in faces:
-        roi_gray = gray[y:y+h, x:x+w]
-        label_id, confidence = recognizer.predict(roi_gray)
-        name = id_to_name.get(label_id, "Unknown")
+        for (x, y, w, h) in faces:
+            roi_gray = gray[y:y+h, x:x+w]
+            label_id, confidence = recognizer.predict(roi_gray)
+            name = id_to_name.get(label_id, "Unknown")
 
-        # Draw results
-        cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
-        cv2.putText(img, f"{name} ({int(confidence)})", (x, y-10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+            # Draw
+            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.putText(img, f"{name} ({int(confidence)})", (x, y-10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-        # Mark attendance if recognized
-        if name != "Unknown":
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            new_entry = pd.DataFrame([[name, now]], columns=["Name", "Time"])
-            new_entry.to_csv(ATTENDANCE_FILE, mode="a", header=False, index=False)
-            st.success(f"Attendance marked for {name} ✅")
+            # Mark attendance
+            if name != "Unknown":
+                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                new_entry = pd.DataFrame([[name, now]], columns=["Name", "Time"])
+                new_entry.to_csv(ATTENDANCE_FILE, mode="a", header=False, index=False)
+                st.success(f"Attendance marked for {name} ✅")
 
-    # Show image with results
-    st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), channels="RGB")
+        st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), channels="RGB")
 
-# Show attendance log
+# -------------------------
+# Mode 2: Webcam
+# -------------------------
+elif mode == "🎥 Use Webcam":
+    st.write("Click below to take a photo with your webcam:")
+
+    img_file = st.camera_input("Take a picture")
+
+    if img_file is not None:
+        file_bytes = np.asarray(bytearray(img_file.read()), dtype=np.uint8)
+        img = cv2.imdecode(file_bytes, 1)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+
+        for (x, y, w, h) in faces:
+            roi_gray = gray[y:y+h, x:x+w]
+            label_id, confidence = recognizer.predict(roi_gray)
+            name = id_to_name.get(label_id, "Unknown")
+
+            # Draw
+            cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            cv2.putText(img, f"{name} ({int(confidence)})", (x, y-10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+            # Mark attendance
+            if name != "Unknown":
+                now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                new_entry = pd.DataFrame([[name, now]], columns=["Name", "Time"])
+                new_entry.to_csv(ATTENDANCE_FILE, mode="a", header=False, index=False)
+                st.success(f"Attendance marked for {name} ✅")
+
+        st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), channels="RGB")
+
+# -------------------------
+# Attendance Log
+# -------------------------
 if st.checkbox("📋 Show Attendance Records"):
     df = pd.read_csv(ATTENDANCE_FILE)
     st.dataframe(df)
