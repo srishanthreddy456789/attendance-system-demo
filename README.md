@@ -4,7 +4,9 @@
 This project was developed as part of **Smart India Hackathon (SIH 25012)**.  
 It addresses the problem statement by providing an innovative, feasible, and scalable solution.  
 
-Our aim is to **[insert your project’s main goal, e.g., "develop an AI-powered platform for…"]**, ensuring both **technical viability** and **social impact**.  
+Our aim is to **[ "​
+
+Automated Attendance System for Rural Schools​"]**, ensuring both **technical viability** and **social impact**.  
 
 ---
 
@@ -12,7 +14,7 @@ Our aim is to **[insert your project’s main goal, e.g., "develop an AI-powered
 - ✅ User-friendly interface  
 - ✅ Scalable and secure architecture  
 - ✅ Data-driven insights for better decision-making  
-- ✅ [Add your unique features here]  
+- ✅ [Offline+Online]  
 
 ---
 
@@ -37,7 +39,6 @@ Our solution is based on:
 - Literature review of existing solutions  
 - Market analysis and case studies  
 - Government reports and policies  
-- [Add your references here in short form]  
 
 ---
 
